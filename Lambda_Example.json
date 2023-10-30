@@ -1,0 +1,329 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Create one S3 Bucket example.",
+    "Parameters": {
+        "Account": {
+            "Type": "String",
+            "Default": "yi-aws",
+            "Description": "AWS Acount Name"
+        },
+        "Region": {
+            "Type": "String",
+            "Default": "us-east-2",
+            "Description": "AWS Region"
+        },
+        "S3BucketName1": {
+            "Type": "String",
+            "Default": "yi-aws-us-east-2-s3-bucket-example",
+            "Description": "Bucket Name"
+        },
+        "S3BucketName2": {
+            "Type": "String",
+            "Default": "yi-aws-us-east-2-s3-bucket-example-1",
+            "Description": "Bucket Name"
+        },
+        "FunctionName": {
+            "Type": "String",
+            "Default": "S3LambdaFunction",
+            "Description": "Lambda Function Name"
+        },
+        "RoleName": {
+            "Type": "String",
+            "Default": "S3LambdaRole",
+            "Description": "Lambda Function Role Name"
+        },
+        "S3KmsKeyArn": {
+            "Default": "arn:aws:kms:us-east-2:955304207641:key/mrk-eb81387515f344dd839945ca063c8577",
+            "Description": "KmsKey to encrypt and decrypt objects in the raw bucket",
+            "Type": "String"
+        },
+        "StreamName": {
+            "Default": "kin_stream_example",
+            "Description": "kinesis stream name",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "LambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Architectures": [
+                    "arm64"
+                ],
+                "Code": {
+                    "S3Bucket": "yi-aws-us-east-2-s3-bucket-example",
+                    "S3Key": "send_to_s3.zip"
+                },
+                "Description": "Create one Lambda Function example.",
+                "EphemeralStorage": {
+                    "Size": 1024
+                },
+                "FunctionName": {
+                    "Fn::Join": [
+                        "-",
+                        [
+                            {
+                                "Ref": "Account"
+                            },
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            {
+                                "Ref": "FunctionName"
+                            }
+                        ]
+                    ]
+                },
+                "Handler": "send_to_s3.lambda_handler",
+                "MemorySize": 128,
+                "PackageType": "Zip",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaFunctionRole",
+                        "Arn"
+                    ]
+                },
+                "Runtime": "python3.11",
+                "Tags": [
+                    {
+                        "Key": "Developer",
+                        "Value": "Yi"
+                    },
+                    {
+                        "Key": "SupportEmail",
+                        "Value": "cuiyihappy@gamil.com"
+                    }
+                ],
+                "Timeout": 60
+            }
+        },
+        "LambdaFunctionRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "lambda.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "LambdaFunctionS3Policy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "ReadAccess",
+                                    "Action": [
+                                        "s3:GetObject",
+                                        "s3:GetObjectVersion"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3BucketName1"
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3BucketName1"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "Sid": "WriteAccess",
+                                    "Action": [
+                                        "s3:PutObject"
+                                    ],
+                                    "Effect": "Allow",
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3BucketName2"
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3BucketName2"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "LambdaFunctionLogPolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "LogAccess",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:*"
+                                    ],
+                                    "Resource": "arn:aws:logs:*:*:*"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "LambdaFunctionKMSPolicy",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kms:Encrypt",
+                                        "kms:Decrypt",
+                                        "kms:ReEncrypt*",
+                                        "kms:GenerateDataKey*",
+                                        "kms:DescribeKey"
+                                    ],
+                                    "Resource": {
+                                        "Ref": "S3KmsKeyArn"
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "PolicyName": "KinesisAccess",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Sid": "LogAccess",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "logs:*"
+                                    ],
+                                    "Resource": "arn:aws:logs:*:*:*"
+                                },
+                                {
+                                    "Sid": "KinesisPermission",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "kinesis:*"
+                                    ],
+                                    "Resource":  {
+                                        "Fn::GetAtt": [
+                                            "Kinesis",
+                                            "Arn"
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "RoleName": {
+                    "Fn::Join": [
+                        "-",
+                        [
+                            {
+                                "Ref": "Account"
+                            },
+                            {
+                                "Ref": "AWS::Region"
+                            },
+                            {
+                                "Ref": "RoleName"
+                            }
+                        ]
+                    ]
+                }
+            }
+        },
+        "Kinesis": {
+            "Type": "AWS::Kinesis::Stream",
+            "Properties": {
+                "Name": {
+                    "Ref": "StreamName"
+                },
+                "RetentionPeriodHours": 24,
+                "ShardCount": 1,
+                "StreamModeDetails": {
+                    "StreamMode": "PROVISIONED"
+                },
+                "Tags": [
+                    {
+                        "Key": "Developer",
+                        "Value": "Yi"
+                    },
+                    {
+                        "Key": "SupportEmail",
+                        "Value": "cuiyihappy@gamil.com"
+                    }
+                ]
+            }
+        },
+        "KinesisEventSourceMapping": {
+            "Type": "AWS::Lambda::EventSourceMapping",
+            "DependsOn": [
+                "Kinesis",
+                "LambdaFunction"
+            ],
+            "Properties": {
+                "BatchSize": 150,
+                "Enabled": true,
+                "EventSourceArn": {
+                    "Fn::GetAtt": [
+                        "Kinesis",
+                        "Arn"
+                    ]
+                },
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "LambdaFunction",
+                        "Arn"
+                    ]
+                },
+                "MaximumBatchingWindowInSeconds": 5,
+                "ParallelizationFactor": 10,
+                "StartingPosition": "LATEST"
+            }
+        }
+    }
+}
